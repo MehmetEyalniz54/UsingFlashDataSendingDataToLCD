@@ -1,0 +1,106 @@
+#include<aduc841.h>
+
+LRS EQU P2.5
+LEE EQU P2.6
+LCD EQU P0
+RW  EQU P2.7
+
+ORG 00H
+sjmp BASLA
+ORG 0BH
+LJMP TIMER0
+
+BASLA:
+    clr RW
+    mov r0, #07FH
+
+temiz:
+    mov @r0, #00H
+    djnz r0, temiz
+	
+lcall   lcd_ayar
+mov     dptr, #Sayi
+
+MOV     EADRH, #0h          ;veri hafızanın
+MOV     EADRL, #3h          ;3. sayfası seçildi
+MOV     ECON, #01           ;3. sayfadaki ilk Byte'in içeriği okundu
+MOV     R1, EDATA1          ;ve R1 saklayıcısına aktarıldı..
+
+clr     LRS                 ;LCD için komut girişi
+mov     a, #80H             ;başlangıç adresi
+lcall   yaz                 ;LCD için veri girişi
+setb    LRS
+
+MOV     TMOD, #081H         ;Timer0 ayarlandı
+MOV     TH0, #00
+MOV     TL0, #00
+MOV     R0, #84d            ;500ms = 5.9ms * 84
+SETB    EA
+SETB    ET0
+SETB    TR0                 ;Timer0 start
+
+MOV     A, R1               ;Veri hafızadan okunan değer R1 de tutuluyordu..
+MOVC    A, @A+DPTR          ;ilk değeri
+LCALL   YAZ                 ;başlangıç adresine yaz...
+
+DUR: CJNE   R0, #0, DUR     ;500ms doldu mu?
+MOV     R0, #84d
+DEC     R1
+MOV     A, R1
+LCALL   YAZ                 ;LCD'ye yaz
+CJNE    R1, #0, DUR
+
+STOP: SJMP STOP
+
+TIMER0:
+    dec   R0
+	reti
+	
+lcd_ayar:
+    clr     LEE
+    clr     LRS
+
+; Minimum 15 ms bekleme
+    lcall    gecik
+    lcall    gecik
+    lcall    gecik
+
+	mov  a, #30H
+	lcall yaz
+	lcall gecik
+	mov  a, #30H
+	lcall yaz
+	lcall gecik
+	mov  a, #30H
+	lcall yaz
+	lcall gecik
+	mov  a, #30H
+	lcall yaz
+	
+	mov    a, #3cH  ; 2 satır,5x10 pixel
+	lcall  yaz
+	
+	mov    a, #01H        ; Ekran, Kursör ve Blink açık
+	lcall  yaz            
+	mov    a, #01H        ; Ekranı sil, Kursör başa döndür
+	lcall  yaz            
+	mov a, #06H   ;Giriş Modu Kursör pozisyonunu artır
+	lcall yaz
+	ret
+	
+yaz:
+	setb LEE
+	lcall gecik
+	mov LCD,a
+	clr LEE
+	ret
+	
+gecik: mov r3, #4fh
+w2: mov r4, #0ffh
+w1: djnz r4, w1
+	djnz r3, w2
+	ret
+
+Sayi: DB '0123456789ABCDEF'
+
+end
